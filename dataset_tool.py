@@ -744,7 +744,7 @@ def create_from_images(tfrecord_dir, image_dir, shuffle):
     with TFRecordExporter(tfrecord_dir, len(image_filenames)) as tfr:
         global order
         order = tfr.choose_shuffled_order() if shuffle else np.arange(len(image_filenames))
-        cpus = int(cpu_count() / 2)
+        cpus = cpu_count() - 2
         print("Running with {} cpus".format(cpus))
         with Pool(processes=cpus) as p:
             p.map(_create_from_images_add_multiprocess, range(order.size))
