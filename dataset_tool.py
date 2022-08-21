@@ -715,16 +715,9 @@ def create_celeba(tfrecord_dir, celeba_dir, cx=89, cy=121):
 
 
 # ----------------------------------------------------------------------------
-counter = 0
-order = None
-image_filenames = None
-channels = None
-tfr = None
-
 
 def create_from_images(tfrecord_dir, image_dir, shuffle):
     print('Loading images from "%s"' % image_dir)
-    global image_filenames
     image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
     if len(image_filenames) == 0:
         error('No input images found')
@@ -732,7 +725,6 @@ def create_from_images(tfrecord_dir, image_dir, shuffle):
     img = np.asarray(PIL.Image.open(image_filenames[0]))
     print(img.shape)
     resolution = img.shape[0]
-    global channels
     channels = img.shape[2] if img.ndim == 3 else 1
     if img.shape[1] != resolution:
         error('Input images must have the same width and height')
@@ -740,28 +732,19 @@ def create_from_images(tfrecord_dir, image_dir, shuffle):
         error('Input image resolution must be a power-of-two')
     if channels not in [1, 3]:
         error('Input images must be stored as RGB or grayscale')
-    global tfr
+
     with TFRecordExporter(tfrecord_dir, len(image_filenames)) as tfr:
-        global order
         order = tfr.choose_shuffled_order() if shuffle else np.arange(len(image_filenames))
-        cpus = cpu_count() - 2
-        print("Running with {} cpus".format(cpus))
-        with Pool(processes=cpus) as p:
-            p.map(_create_from_images_add_multiprocess, range(order.size))
-
-
-def _create_from_images_add_multiprocess(idx):
-    global counter
-    counter += 1
-    if counter % 1000 == 0:
-        print("added images", counter, flush=True)
-    img = np.asarray(PIL.Image.open(image_filenames[order[idx]]))
-    if channels == 1:
-        print("Greyscale, adding dimension:", image_filenames[order[idx]], img.shape)
-        img = img[np.newaxis, :, :]  # HW => CHW
-    else:
-        img = img.transpose([2, 0, 1])  # HWC => CHW
-    tfr.add_image(img)
+        for idx in range(order.size):
+            if idx % 1000 == 0:
+                print("added images", idx, flush=True)
+            img = np.asarray(PIL.Image.open(image_filenames[order[idx]]))
+            if channels == 1:
+                print("Greyscale, adding dimension:", image_filenames[order[idx]], img.shape)
+                img = img[np.newaxis, :, :]  # HW => CHW
+            else:
+                img = img.transpose([2, 0, 1])  # HWC => CHW
+            tfr.add_image(img)
 
 
 # ----------------------------------------------------------------------------
